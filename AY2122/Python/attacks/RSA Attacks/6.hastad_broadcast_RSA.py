@@ -55,7 +55,7 @@ if __name__ == '__main__':
     g, u2, v2 = egcd(n1 * n3, n2) #n2
     g, u3, v3 = egcd(n1 * n2, n3)  # n2
 
-    c = c1 * u1 * n2*n3 + c2 * u2* n1*n3 + c3 * u3 * n1*n2
+    c = (c1 * u1 * n2*n3 + c2 * u2* n1*n3 + c3 * u3 * n1*n2) % (n1*n2*n3)
 
     dec_int = iroot(e, c)
     print(dec_int.to_bytes(dec_int.bit_length()//8 + 1, byteorder='big').decode())
