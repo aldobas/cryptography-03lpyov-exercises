@@ -62,7 +62,7 @@ int main()
 
     EVP_CIPHER_CTX_free(ctx);
 
-    printf("Ciphertext lenght = %d\n", ciphertext_len);
+    printf("Ciphertext length = %d\n", ciphertext_len);
     for(int i = 0; i < ciphertext_len; i++)
         printf("%02x", ciphertext[i]);
     printf("\n");

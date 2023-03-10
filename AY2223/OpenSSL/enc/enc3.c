@@ -7,6 +7,7 @@
 
 #define ENCRYPT 1
 #define DECRYPT 0
+#define MAX_ENC_LEN 1000000
 #define MAX_BUFFER 1024
 
 void handle_errors(){
@@ -22,10 +23,11 @@ int main(int argc, char **argv)
 //  int EVP_CipherFinal(EVP_CIPHER_CTX *ctx, unsigned char *outm, int *outl);
 
 
+    
 
 
-    if(argc != 5){
-        fprintf(stderr,"Invalid parameters. Usage: %s file_in key iv file_out\n",argv[0]);
+    if(argc != 4){
+        fprintf(stderr,"Invalid parameters. Usage: %s filename key iv\n",argv[0]);
         exit(1);
     }
 
@@ -35,21 +37,18 @@ int main(int argc, char **argv)
             fprintf(stderr,"Couldn't open the input file, try again\n");
             abort();
     }
- 
+
     if(strlen(argv[2])!=32){
-        fprintf(stderr,"Wrong key lenght\n");
+        fprintf(stderr,"Wrong key length\n");
         abort();
     }   
     if(strlen(argv[3])!=32){
-        fprintf(stderr,"Wrong IV lenght\n");
+        fprintf(stderr,"Wrong IV length\n");
         abort();
     }
-    
-    FILE *f_out;
-    if((f_out = fopen(argv[4],"wb")) == NULL) {
-            fprintf(stderr,"Couldn't open the output file, try again\n");
-            abort();
-    }
+        
+
+        
 
     unsigned char key[strlen(argv[2])/2];
     for(int i = 0; i < strlen(argv[2])/2;i++){
@@ -61,12 +60,11 @@ int main(int argc, char **argv)
         sscanf(&argv[3][2*i],"%2hhx", &iv[i]);
     }
 
+
     /* Load the human readable error strings for libcrypto */
     ERR_load_crypto_strings();
     /* Load all digest and cipher algorithms */
     OpenSSL_add_all_algorithms();
-
-
 
     // pedantic mode: check NULL
     EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
@@ -74,45 +72,45 @@ int main(int argc, char **argv)
     if(!EVP_CipherInit(ctx,EVP_aes_128_cbc(), key, iv, ENCRYPT))
         handle_errors();
 
-    int lenght;
-    unsigned char ciphertext[MAX_BUFFER+16];
+    
+    
+    unsigned char ciphertext[MAX_ENC_LEN];
 
+    int update_len, final_len;
+    int ciphertext_len=0;
     int n_read;
     unsigned char buffer[MAX_BUFFER];
 
+
     while((n_read = fread(buffer,1,MAX_BUFFER,f_in)) > 0){
-        printf("n_Read=%d-",n_read);
-        if(!EVP_CipherUpdate(ctx,ciphertext,&lenght,buffer,n_read))
-            handle_errors();
-        printf("lenght=%d\n",lenght);
-        if(fwrite(ciphertext, 1, lenght,f_out) < lenght){
-            fprintf(stderr,"Error writing the output file\n");
+        if(ciphertext_len > MAX_ENC_LEN - n_read - EVP_CIPHER_CTX_block_size(ctx)){ //use EVP_CIPHER_get_block_size with OpenSSL 3.0+
+            fprintf(stderr,"The file to cipher is larger than I can\n");
             abort();
         }
+    
+        if(!EVP_CipherUpdate(ctx,ciphertext+ciphertext_len,&update_len,buffer,n_read))
+            handle_errors();
+        ciphertext_len+=update_len;
     }
-            
-    if(!EVP_CipherFinal_ex(ctx,ciphertext,&lenght))
+
+    if(!EVP_CipherFinal_ex(ctx,ciphertext+ciphertext_len,&final_len))
         handle_errors();
 
-    printf("lenght=%d\n",lenght);
-
-    if(fwrite(ciphertext,1, lenght, f_out) < lenght){
-        fprintf(stderr,"Error writing in the output file\n");
-        abort();
-    }
+    ciphertext_len+=final_len;
 
     EVP_CIPHER_CTX_free(ctx);
 
-    fclose(f_in);
-    fclose(f_out);
-
-    printf("File encrypted!\n");
+    printf("Ciphertext length = %d\n", ciphertext_len);
+    for(int i = 0; i < ciphertext_len; i++)
+        printf("%02x", ciphertext[i]);
+    printf("\n");
 
 
     // completely free all the cipher data
     CRYPTO_cleanup_all_ex_data();
     /* Remove error strings */
     ERR_free_strings();
+
 
     return 0;
 }
