@@ -1,0 +1,1 @@
+cbc_oracle_key = b'0123456789abcdef0123456789abcdef'
